@@ -6,7 +6,7 @@ from pathlib import Path
 import joblib
 from sklearn.ensemble import RandomForestRegressor
 
-from model import CAP_SECONDS, featurize_qasm
+from forest_model import CAP_SECONDS, featurize_qasm
 from run import find_circuits, read_qasm
 
 
