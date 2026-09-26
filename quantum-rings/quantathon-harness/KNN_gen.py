@@ -8,7 +8,7 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from model import CAP_SECONDS, featurize_qasm
+from KNN_model import CAP_SECONDS, featurize_qasm
 from run import find_circuits, read_qasm
 
 
