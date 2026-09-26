@@ -43,7 +43,7 @@ Combined Ensamble(2/3 data): 84%
 
 XGBoost\* : 97%
 XGBoost\* : 98% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+XGBoost : 84.36%
 # Expanded features
 GBT: 86.68%
 
