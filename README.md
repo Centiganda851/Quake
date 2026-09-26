@@ -29,21 +29,23 @@ GBT2: 82.5%
 
 NeuralNet1: 77.27%
 
-KNN: 93.74%
+KNN: 93.74% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 Extra trees\* 89.2%
 
 SVM: 78.41%
 
-Random Forest: 88.49%
+Random Forest: 88.49% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 Combined Ensamble\* : 97%
 
 Combined Ensamble(2/3 data): 84%
 
 XGBoost\* : 97%
+XGBoost\* : 98% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-
+# Expanded features
+GBT: 86.68%
 
 
 \* trained on the full data set
