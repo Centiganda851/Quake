@@ -4,5 +4,5 @@ zstandard>=0.22
 
 # --- Add whatever YOUR model needs below (examples) ---
 # numpy
-# scikit-learn
-# joblib
+scikit-learn>=1.3
+joblib>=1.3

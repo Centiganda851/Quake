@@ -29,7 +29,7 @@ class RuntimeModel:
     def __init__(self, artifacts_dir="artifacts"):
         # Load your trained model here, e.g.:
         #   import joblib
-        #   self.model = joblib.load(f"{artifacts_dir}/model.pkl")
+        #self.model = joblib.load(f"{artifacts_dir}/model.pkl")
         self.model = None
 
     # ------------------------------------------------------------------ #
