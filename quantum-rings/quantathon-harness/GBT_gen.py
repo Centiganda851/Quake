@@ -6,7 +6,7 @@ from pathlib import Path
 import joblib
 from sklearn.ensemble import GradientBoostingRegressor
 
-from model import CAP_SECONDS, RuntimeModel
+from GBT_model import CAP_SECONDS, RuntimeModel
 from run import find_circuits, read_qasm
 
 
