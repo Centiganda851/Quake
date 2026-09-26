@@ -5,6 +5,7 @@ numpy
 pandas
 scikit-learn
 joblib
+xgboost
 
 # --- Add whatever YOUR model needs below (examples) ---
 # numpy
