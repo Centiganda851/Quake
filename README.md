@@ -30,3 +30,5 @@ Base model: 8.9%
 GPT: 79.97%
 
 GPT2: 82.5%
+
+NeuralNet1: 77.27%
