@@ -23,9 +23,9 @@ During this process we also take into account combinations that the compiler wou
 
 Base model: 8.9%
 
-GPT: 79.97%
+GBT: 79.97%
 
-GPT2: 82.5%
+GBT2: 82.5%
 
 NeuralNet1: 77.27%
 
@@ -36,6 +36,14 @@ Extra trees\* 89.2%
 SVM: 78.41%
 
 Random Forest: 88.49%
+
+Combined Ensamble\* : 97%
+
+Combined Ensamble(2/3 data): 84%
+
+XGBoost\* : 97%
+
+
 
 
 \* trained on the full data set
