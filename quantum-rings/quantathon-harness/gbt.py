@@ -4,9 +4,11 @@ import math
 from pathlib import Path
 
 import joblib
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.neural_network import MLPRegressor
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
-from model import CAP_SECONDS, RuntimeModel
+from model import CAP_SECONDS, featurize_qasm
 from run import find_circuits, read_qasm
 
 
@@ -40,7 +42,6 @@ def build_training_data(circuits_dir: Path, labels_path: Path, limit: int):
     if not circuit_paths:
         raise ValueError(f"No QASM files found in {circuits_dir}")
 
-    feature_parser = RuntimeModel()
     feature_cache = {}
     samples = []
     targets = []
@@ -49,9 +50,7 @@ def build_training_data(circuits_dir: Path, labels_path: Path, limit: int):
         if filename not in circuit_paths:
             raise ValueError(f"No circuit file found for labeled circuit {filename}")
         if filename not in feature_cache:
-            feature_cache[filename] = feature_parser.featurize(
-                read_qasm(circuit_paths[filename])
-            )
+            feature_cache[filename] = featurize_qasm(read_qasm(circuit_paths[filename]))
         features = feature_cache[filename]
         samples.append([features[name] for name in FEATURE_NAMES[:3]] + [threshold])
         targets.append(math.log10(max(duration, 1e-6)))
@@ -61,7 +60,7 @@ def build_training_data(circuits_dir: Path, labels_path: Path, limit: int):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Train a gradient-boosting runtime model from the first N runtime-data rows."
+        description="Train a neural-network runtime model from the first N runtime-data rows."
     )
     parser.add_argument(
         "--circuits",
@@ -79,19 +78,28 @@ def main():
     parser.add_argument(
         "--out",
         type=Path,
-        default=HARNESS_DIR / "artifacts" / "gbt_model.joblib",
-        help="Path for the trained model artifact.",
+        default=HARNESS_DIR / "artifacts" / "nn_model.joblib",
+        help="Path for the trained neural-network artifact.",
     )
     args = parser.parse_args()
     if args.limit < 1:
         parser.error("--limit must be at least 1")
 
     samples, targets, filenames = build_training_data(args.circuits, args.labels, args.limit)
-    model = GradientBoostingRegressor(
-        n_estimators=100,
-        learning_rate=0.1,
-        max_depth=3,
-        random_state=42,
+    model = make_pipeline(
+        StandardScaler(),
+        MLPRegressor(
+            hidden_layer_sizes=(64, 32),
+            activation="relu",
+            solver="adam",
+            alpha=0.001,
+            learning_rate_init=0.001,
+            max_iter=2000,
+            early_stopping=True,
+            validation_fraction=0.1,
+            n_iter_no_change=30,
+            random_state=42,
+        ),
     )
     model.fit(samples, targets)
 

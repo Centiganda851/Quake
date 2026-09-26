@@ -27,6 +27,20 @@ from pathlib import Path
 CAP_SECONDS = 4 * 60 * 60  # 4-hour timeout cap
 
 
+def featurize_qasm(qasm_text: str) -> dict:
+    n_qubits = 0
+    for match in re.finditer(r"q(?:u)?(?:reg|bit)\s+\w+\s*\[\s*(\d+)\s*\]", qasm_text):
+        n_qubits += int(match.group(1))
+
+    lines = [line.strip() for line in qasm_text.splitlines()]
+    gate_lines = [line for line in lines if line and not line.startswith(("//", "OPENQASM",
+                 "include", "qreg", "creg", "qubit", "bit", "gate"))]
+    n_ops = len(gate_lines)
+    n_2q = len(re.findall(r"\b(cx|cz|cy|ch|swap|iswap|rzz|rxx|ryy|cp|crx|cry|crz|ecr)\b", qasm_text))
+
+    return {"n_qubits": n_qubits, "n_ops": n_ops, "n_2q": n_2q}
+
+
 class RuntimeModel:
     def __init__(self, artifacts_dir="artifacts"):
         import joblib
@@ -34,9 +48,9 @@ class RuntimeModel:
         artifacts_path = Path(artifacts_dir)
         if not artifacts_path.is_absolute():
             artifacts_path = Path(__file__).resolve().parent / artifacts_path
-        artifact_path = artifacts_path / "gbt_model.joblib"
+        artifact_path = artifacts_path / "nn_model.joblib"
         if not artifact_path.is_file():
-            raise FileNotFoundError(f"Trained GBT model not found: {artifact_path}")
+            raise FileNotFoundError(f"Trained neural-network model not found: {artifact_path}")
 
         artifact = joblib.load(artifact_path)
         self.model = artifact["model"]
@@ -48,19 +62,7 @@ class RuntimeModel:
     # 1) FEATURE PARSER  --  .qasm text  ->  feature dict                 #
     # ------------------------------------------------------------------ #
     def featurize(self, qasm_text: str) -> dict:
-        # BASELINE: a few cheap structural features. Design your own.
-        n_qubits = 0
-        for m in re.finditer(r"q(?:u)?(?:reg|bit)\s+\w+\s*\[\s*(\d+)\s*\]", qasm_text):
-            n_qubits += int(m.group(1))
-
-        lines = [l.strip() for l in qasm_text.splitlines()]
-        gate_lines = [l for l in lines if l and not l.startswith(("//", "OPENQASM",
-                     "include", "qreg", "creg", "qubit", "bit", "gate"))]
-        n_ops = len(gate_lines)
-        # crude two-qubit-gate count (entangling ops dominate simulator cost)
-        n_2q = len(re.findall(r"\b(cx|cz|cy|ch|swap|iswap|rzz|rxx|ryy|cp|crx|cry|crz|ecr)\b", qasm_text))
-
-        return {"n_qubits": n_qubits, "n_ops": n_ops, "n_2q": n_2q}
+        return featurize_qasm(qasm_text)
 
     # ------------------------------------------------------------------ #
     # 2) MODEL  --  (features, threshold)  ->  predicted seconds          #
@@ -68,5 +70,6 @@ class RuntimeModel:
     def predict(self, features: dict, threshold: int) -> float:
         model_features = [features[name] for name in self.feature_names[:3]] + [threshold]
         predicted_log_seconds = self.model.predict([model_features])[0]
+        predicted_log_seconds = min(max(float(predicted_log_seconds), -6), math.log10(CAP_SECONDS))
         predicted_seconds = math.pow(10, predicted_log_seconds)
         return float(min(predicted_seconds, CAP_SECONDS))
