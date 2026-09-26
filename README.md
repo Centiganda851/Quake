@@ -28,3 +28,14 @@ GPT: 79.97%
 GPT2: 82.5%
 
 NeuralNet1: 77.27%
+
+KNN: 93.74%
+
+Extra trees\* 89.2%
+
+SVM: 78.41%
+
+Random Forest: 88.49%
+
+
+\* trained on the full data set
