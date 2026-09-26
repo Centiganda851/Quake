@@ -1,7 +1,6 @@
 import argparse
 import csv
 import math
-from collections import defaultdict
 from pathlib import Path
 
 import joblib
@@ -16,44 +15,53 @@ HARNESS_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = HARNESS_DIR.parent
 
 
-def load_labels(labels_path: Path) -> dict[str, list[tuple[int, float]]]:
-    labels = defaultdict(list)
+def load_labels(labels_path: Path, limit: int) -> list[tuple[str, int, float]]:
+    labels = []
     with labels_path.open(newline="", encoding="utf-8") as csv_file:
-        for row in csv.DictReader(csv_file):
+        for index, row in enumerate(csv.DictReader(csv_file)):
+            if index >= limit:
+                break
             if row["status"] == "timeout":
                 duration = CAP_SECONDS
             else:
                 duration = float(row["duration_s"])
-            labels[row["filename"]].append((int(row["threshold"]), duration))
+            labels.append((row["filename"], int(row["threshold"]), duration))
     return labels
 
 
 def build_training_data(circuits_dir: Path, labels_path: Path, limit: int):
-    circuit_paths = find_circuits(circuits_dir)[:limit]
+    circuit_paths = {
+        path.name[:-4] if path.suffix == ".zst" else path.name: path
+        for path in find_circuits(circuits_dir)
+    }
+    labels = load_labels(labels_path, limit)
+    if not labels:
+        raise ValueError(f"No runtime rows found in {labels_path}")
     if not circuit_paths:
         raise ValueError(f"No QASM files found in {circuits_dir}")
 
-    labels = load_labels(labels_path)
     feature_parser = RuntimeModel()
+    feature_cache = {}
     samples = []
     targets = []
 
-    for circuit_path in circuit_paths:
-        filename = circuit_path.name[:-4] if circuit_path.suffix == ".zst" else circuit_path.name
-        if filename not in labels:
-            raise ValueError(f"No runtime labels found for {filename}")
+    for filename, threshold, duration in labels:
+        if filename not in circuit_paths:
+            raise ValueError(f"No circuit file found for labeled circuit {filename}")
+        if filename not in feature_cache:
+            feature_cache[filename] = feature_parser.featurize(
+                read_qasm(circuit_paths[filename])
+            )
+        features = feature_cache[filename]
+        samples.append([features[name] for name in FEATURE_NAMES[:3]] + [threshold])
+        targets.append(math.log10(max(duration, 1e-6)))
 
-        features = feature_parser.featurize(read_qasm(circuit_path))
-        for threshold, duration in labels[filename]:
-            samples.append([features[name] for name in FEATURE_NAMES[:3]] + [threshold])
-            targets.append(math.log10(max(duration, 1e-6)))
-
-    return samples, targets, [path.name for path in circuit_paths]
+    return samples, targets, list(feature_cache)
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Train a gradient-boosting runtime model from the first N training circuits."
+        description="Train a gradient-boosting runtime model from the first N runtime-data rows."
     )
     parser.add_argument(
         "--circuits",
@@ -67,7 +75,7 @@ def main():
         default=PROJECT_DIR / "runtime-data.csv",
         help="CSV containing measured runtimes keyed by filename and threshold.",
     )
-    parser.add_argument("--limit", type=int, default=100, help="Number of sorted circuits to train on.")
+    parser.add_argument("--limit", type=int, default=1000, help="Number of runtime-data rows to train on.")
     parser.add_argument(
         "--out",
         type=Path,
