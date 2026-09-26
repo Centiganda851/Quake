@@ -1,25 +1,21 @@
 # NULLQUAKE™® MODEL™®
 
 ## FEATURE VECTOR
-We start by parsing the qasm file into a feature vector. This contains 15 features:
-$$
-\begin{bmatrix}
-\text{Depth} \\
-\text{X Gates} \\
-\text{Qubits that have X Gates} \\
-\text{Z Gates} \\
-\text{Qubits that have Z Gates} \\
-\text{Cx Gates} \\
-\text{Qubits that have Cx Gates} \\
-\text{H Gates} \\
-\text{Qubits that have H Gates} \\
-\text{T Gates} \\
-\text{Total Number of Qbits} \\
-\text{Topology} \\
-\text{Qubit nodes} \\
-\text{number of different gates} \\
-\end{bmatrix}
-$$
+We start by parsing the qasm file into a feature vector. This contains 15 features: 
+Depth,
+X Gates,
+Qubits that have X Gates,
+Z Gates,
+Qubits that have Z Gates,
+Cx Gates,
+Qubits that have Cx Gates,
+H Gates,
+Qubits that have H Gates,
+T Gates,
+Total Number of Qbits,
+Topology,
+Qubit nodes,
+number of different gates
 
 During this process we also take into account combinations that the compiler would have already optimized out, such as gates canceling.
 
