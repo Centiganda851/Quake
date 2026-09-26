@@ -8,7 +8,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVR
 
-from model import CAP_SECONDS, featurize_qasm
+from SVM_model import CAP_SECONDS, featurize_qasm
 from run import find_circuits, read_qasm
 
 
