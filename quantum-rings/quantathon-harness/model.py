@@ -48,9 +48,9 @@ class RuntimeModel:
         artifacts_path = Path(artifacts_dir)
         if not artifacts_path.is_absolute():
             artifacts_path = Path(__file__).resolve().parent / artifacts_path
-        artifact_path = artifacts_path / "nn_model.joblib"
+        artifact_path = artifacts_path / "knn_model.joblib"
         if not artifact_path.is_file():
-            raise FileNotFoundError(f"Trained neural-network model not found: {artifact_path}")
+            raise FileNotFoundError(f"Trained KNN model not found: {artifact_path}")
 
         artifact = joblib.load(artifact_path)
         self.model = artifact["model"]

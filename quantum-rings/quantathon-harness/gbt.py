@@ -4,7 +4,7 @@ import math
 from pathlib import Path
 
 import joblib
-from sklearn.neural_network import MLPRegressor
+from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -60,7 +60,7 @@ def build_training_data(circuits_dir: Path, labels_path: Path, limit: int):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Train a neural-network runtime model from the first N runtime-data rows."
+        description="Train a KNN runtime model from the first N runtime-data rows."
     )
     parser.add_argument(
         "--circuits",
@@ -78,8 +78,8 @@ def main():
     parser.add_argument(
         "--out",
         type=Path,
-        default=HARNESS_DIR / "artifacts" / "nn_model.joblib",
-        help="Path for the trained neural-network artifact.",
+        default=HARNESS_DIR / "artifacts" / "knn_model.joblib",
+        help="Path for the trained KNN artifact.",
     )
     args = parser.parse_args()
     if args.limit < 1:
@@ -88,17 +88,10 @@ def main():
     samples, targets, filenames = build_training_data(args.circuits, args.labels, args.limit)
     model = make_pipeline(
         StandardScaler(),
-        MLPRegressor(
-            hidden_layer_sizes=(64, 32),
-            activation="relu",
-            solver="adam",
-            alpha=0.001,
-            learning_rate_init=0.001,
-            max_iter=2000,
-            early_stopping=True,
-            validation_fraction=0.1,
-            n_iter_no_change=30,
-            random_state=42,
+        KNeighborsRegressor(
+            n_neighbors=min(5, len(samples)),
+            weights="distance",
+            p=2,
         ),
     )
     model.fit(samples, targets)
@@ -114,7 +107,7 @@ def main():
         args.out,
     )
     print(f"Trained on {len(filenames)} circuits and {len(samples)} labeled runs.")
-    print(f"Saved model to {args.out}")
+    print(f"Saved KNN model to {args.out}")
 
 
 if __name__ == "__main__":
