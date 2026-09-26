@@ -4,9 +4,7 @@ import math
 from pathlib import Path
 
 import joblib
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVR
+from sklearn.ensemble import RandomForestRegressor
 
 from model import CAP_SECONDS, featurize_qasm
 from run import find_circuits, read_qasm
@@ -60,7 +58,7 @@ def build_training_data(circuits_dir: Path, labels_path: Path, limit: int):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Train an SVM runtime model from the first N runtime-data rows."
+        description="Train a random-forest runtime model from the first N runtime-data rows."
     )
     parser.add_argument(
         "--circuits",
@@ -78,21 +76,19 @@ def main():
     parser.add_argument(
         "--out",
         type=Path,
-        default=HARNESS_DIR / "artifacts" / "svm_model.joblib",
-        help="Path for the trained SVM artifact.",
+        default=HARNESS_DIR / "artifacts" / "random_forest_model.joblib",
+        help="Path for the trained random-forest artifact.",
     )
     args = parser.parse_args()
     if args.limit < 1:
         parser.error("--limit must be at least 1")
 
     samples, targets, filenames = build_training_data(args.circuits, args.labels, args.limit)
-    model = make_pipeline(
-        StandardScaler(),
-        SVR(
-            kernel="rbf",
-            C=10.0,
-            epsilon=0.1,
-        ),
+    model = RandomForestRegressor(
+        n_estimators=300,
+        min_samples_leaf=2,
+        random_state=42,
+        n_jobs=-1,
     )
     model.fit(samples, targets)
 
@@ -107,7 +103,7 @@ def main():
         args.out,
     )
     print(f"Trained on {len(filenames)} circuits and {len(samples)} labeled runs.")
-    print(f"Saved SVM model to {args.out}")
+    print(f"Saved random-forest model to {args.out}")
 
 
 if __name__ == "__main__":
