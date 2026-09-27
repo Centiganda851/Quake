@@ -4,8 +4,10 @@ import math
 from pathlib import Path
 
 import joblib
+from sklearn.model_selection import GridSearchCV, GroupKFold
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import make_pipeline
+from sklearn.metrics import make_scorer
 from sklearn.preprocessing import StandardScaler
 
 from model import CAP_SECONDS, CircuitFeatureParser, flatten_features
@@ -15,6 +17,21 @@ from run import find_circuits, read_qasm
 HARNESS_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = HARNESS_DIR.parent
 MAX_TRAINING_ROWS = 1000
+CV_FOLDS = 5
+
+
+def challenge_accuracy(y_true, y_pred):
+    max_log_seconds = math.log10(CAP_SECONDS)
+    scores = [
+        max(
+            0.0,
+            1.0 - abs(
+                min(max(float(predicted), -9.0), max_log_seconds) - float(actual)
+            ) / 2.0,
+        )
+        for actual, predicted in zip(y_true, y_pred)
+    ]
+    return sum(scores) / len(scores) if scores else 0.0
 
 
 def resolve_labels_path(path: Path) -> Path:
@@ -74,7 +91,8 @@ def build_training_data(circuits_dir: Path, labels_path: Path, limit: int):
         samples.append([features.get(name, 0.0) for name in feature_names] + [threshold])
         targets.append(math.log10(max(duration, 1e-6)))
 
-    return samples, targets, model_feature_names, sorted(feature_cache)
+    groups = [filename for filename, _, _ in labels]
+    return samples, targets, model_feature_names, sorted(feature_cache), groups
 
 
 def main():
@@ -109,18 +127,39 @@ def main():
     if not 1 <= args.limit <= MAX_TRAINING_ROWS:
         parser.error("--limit must be between 1 and 1000")
 
-    samples, targets, feature_names, filenames = build_training_data(
+    samples, targets, feature_names, filenames, groups = build_training_data(
         args.circuits, args.labels, args.limit
     )
-    model = make_pipeline(
+    if len(set(groups)) < CV_FOLDS:
+        parser.error(f"Five-fold grouped validation requires at least {CV_FOLDS} circuits")
+
+    estimator = make_pipeline(
         StandardScaler(),
         KNeighborsRegressor(
-            n_neighbors=min(5, len(samples)),
-            weights="distance",
-            p=2,
+            n_neighbors=5,
         ),
     )
-    model.fit(samples, targets)
+    group_cv = GroupKFold(n_splits=CV_FOLDS)
+    cv_splits = list(group_cv.split(samples, targets, groups))
+    smallest_training_fold = min(len(train_indices) for train_indices, _ in cv_splits)
+    neighbors = [
+        count for count in (1, 3, 5, 7, 9, 15)
+        if count <= smallest_training_fold
+    ]
+    search = GridSearchCV(
+        estimator,
+        param_grid={
+            "kneighborsregressor__n_neighbors": neighbors,
+            "kneighborsregressor__weights": ("uniform", "distance"),
+            "kneighborsregressor__p": (1, 2),
+        },
+        scoring=make_scorer(challenge_accuracy),
+        cv=cv_splits,
+        n_jobs=-1,
+        refit=True,
+    )
+    search.fit(samples, targets)
+    model = search.best_estimator_
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(
@@ -129,11 +168,16 @@ def main():
             "feature_names": feature_names,
             "target_transform": "log10_seconds",
             "trained_filenames": filenames,
+            "cv_folds": CV_FOLDS,
+            "cv_score": float(search.best_score_),
+            "best_params": search.best_params_,
         },
         args.out,
     )
     print(f"Trained on {len(filenames)} circuits and {len(samples)} runtime rows.")
     print(f"Used {len(feature_names) - 1} circuit features plus threshold.")
+    print(f"Best {CV_FOLDS}-fold grouped CV accuracy: {search.best_score_:.2%}")
+    print(f"Best KNN settings: {search.best_params_}")
     print(f"Saved KNN model to {args.out}")
 
 
