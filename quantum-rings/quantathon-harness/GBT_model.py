@@ -20,17 +20,29 @@ The version below is a trivial BASELINE so the harness runs out of the box.
 Replace its guts with your real feature parser and model.
 """
 
+import math
 import re
+from pathlib import Path
 
 CAP_SECONDS = 4 * 60 * 60  # 4-hour timeout cap
 
 
 class RuntimeModel:
     def __init__(self, artifacts_dir="artifacts"):
-        # Load your trained model here, e.g.:
-        #   import joblib
-        #   self.model = joblib.load(f"{artifacts_dir}/model.pkl")
-        self.model = None
+        import joblib
+
+        artifacts_path = Path(artifacts_dir)
+        if not artifacts_path.is_absolute():
+            artifacts_path = Path(__file__).resolve().parent / artifacts_path
+        artifact_path = artifacts_path / "gbt_model.joblib"
+        if not artifact_path.is_file():
+            raise FileNotFoundError(f"Trained GBT model not found: {artifact_path}")
+
+        artifact = joblib.load(artifact_path)
+        self.model = artifact["model"]
+        self.feature_names = artifact["feature_names"]
+        if artifact.get("target_transform") != "log10_seconds":
+            raise ValueError(f"Unsupported target transform in {artifact_path}")
 
     # ------------------------------------------------------------------ #
     # 1) FEATURE PARSER  --  .qasm text  ->  feature dict                 #
@@ -54,9 +66,7 @@ class RuntimeModel:
     # 2) MODEL  --  (features, threshold)  ->  predicted seconds          #
     # ------------------------------------------------------------------ #
     def predict(self, features: dict, threshold: int) -> float:
-        # BASELINE: a toy formula. Replace with your trained model.
-        n = features["n_qubits"]
-        est = 1e-4 * (2 ** min(n, 30)) * (1 + features["n_2q"] / 1000.0)
-        est *= (threshold / 16.0) ** 0.5           # crude threshold scaling
-        # predict >= cap to signal "this will time out"
-        return float(min(est, CAP_SECONDS))
+        model_features = [features[name] for name in self.feature_names[:3]] + [threshold]
+        predicted_log_seconds = self.model.predict([model_features])[0]
+        predicted_seconds = math.pow(10, predicted_log_seconds)
+        return float(min(predicted_seconds, CAP_SECONDS))
