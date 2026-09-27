@@ -727,15 +727,17 @@ def flatten_features(features: dict) -> dict[str, float]:
 
 
 class RuntimeModel:
-    def __init__(self, artifacts_dir="artifacts"):
+    def __init__(self, artifacts_dir="artifacts", model_artifact="gbt_model.joblib"):
         import joblib
 
         artifacts_path = Path(artifacts_dir)
         if not artifacts_path.is_absolute():
             artifacts_path = Path(__file__).resolve().parent / artifacts_path
-        artifact_path = artifacts_path / "gbt_model.joblib"
+        artifact_path = Path(model_artifact)
+        if not artifact_path.is_absolute():
+            artifact_path = artifacts_path / artifact_path
         if not artifact_path.is_file():
-            raise FileNotFoundError(f"Trained GBT model not found: {artifact_path}")
+            raise FileNotFoundError(f"Trained model not found: {artifact_path}")
 
         artifact = joblib.load(artifact_path)
         self.model = artifact["model"]

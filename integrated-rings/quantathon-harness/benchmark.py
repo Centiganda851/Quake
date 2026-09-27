@@ -19,6 +19,7 @@ You should not need to change anything here. Edit model.py only.
 
 import argparse
 import csv
+import math
 import sys
 import time
 from pathlib import Path
@@ -27,6 +28,68 @@ from model import RuntimeModel
 
 PARSE_CAP_S = 15.0     # per-circuit feature-parsing cap
 PREDICT_CAP_S = 15.0   # per-circuit inference cap
+CAP_SECONDS = 14400.0
+SCORE_LOG_SCALE = 2.0
+
+
+def resolve_labels_path(path: Path) -> Path:
+    content = path.read_text(encoding="utf-8").strip()
+    if content.startswith("filename,"):
+        return path
+    target = (path.parent / content).resolve()
+    if target.is_file():
+        return target
+    raise ValueError(f"Expected a runtime CSV or path pointer in {path}")
+
+
+def report_accuracy(predictions, labels_path: Path):
+    prediction_map = {
+        (row["filename"].strip(), int(float(row["threshold"]))): float(row["pred_duration_s"])
+        for row in predictions
+    }
+    labels_path = resolve_labels_path(labels_path)
+    scores_by_threshold = {}
+    total_scores = []
+    matched = 0
+
+    with labels_path.open(newline="", encoding="utf-8") as csv_file:
+        for row in csv.DictReader(csv_file):
+            threshold = int(float(row["threshold"]))
+            is_timeout = row.get("status", "").strip().lower() == "timeout"
+            duration_text = row.get("duration_s", "").strip()
+            if not is_timeout and not duration_text:
+                continue
+            actual = CAP_SECONDS if is_timeout else float(duration_text)
+            if actual <= 0:
+                continue
+
+            key = (row["filename"].strip(), threshold)
+            score = 0.0
+            if key in prediction_map:
+                matched += 1
+                prediction = prediction_map[key]
+                if is_timeout:
+                    prediction = min(prediction, CAP_SECONDS)
+                prediction = max(prediction, 1e-9)
+                score = max(
+                    0.0,
+                    1.0 - abs(math.log10(prediction / actual)) / SCORE_LOG_SCALE,
+                )
+
+            total_scores.append(score)
+            scores_by_threshold.setdefault(threshold, []).append(score)
+
+    if not total_scores:
+        raise ValueError(f"No valid runtime labels found in {labels_path}")
+
+    print(f"\nTOTAL ACCURACY: {sum(total_scores) / len(total_scores):.2%}")
+    print(f"Matched predictions: {matched}/{len(total_scores)}")
+    for threshold in (16, 64, 512):
+        scores = scores_by_threshold.get(threshold, [])
+        if scores:
+            print(f"THRESHOLD {threshold} ACCURACY: {sum(scores) / len(scores):.2%}")
+        else:
+            print(f"THRESHOLD {threshold} ACCURACY: n/a (no labeled rows)")
 
 
 def read_qasm(path: Path) -> str:
@@ -65,6 +128,8 @@ def main():
     ap.add_argument("--model-artifact", default="gbt_model.joblib",
                     help="Model artifact filename under artifacts/.")
     ap.add_argument("--out", default="submission.csv")
+    ap.add_argument("--labels", type=Path, default=Path(__file__).resolve().parent / "runtime-data.csv",
+                    help="Runtime CSV or a file containing a relative path to the runtime CSV.")
     args = ap.parse_args()
 
     thresholds = [int(t) for t in args.thresholds.split(",") if t.strip()]
@@ -126,7 +191,7 @@ def main():
     if over_cap:
         print(f"WARNING: {len(over_cap)} runs exceeded the 15 s cap "
               f"(these may be penalized). First few: {over_cap[:5]}")
-    print("DM this file to the organizers.")
+    report_accuracy(rows, args.labels)
 
 
 if __name__ == "__main__":

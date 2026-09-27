@@ -42,10 +42,13 @@ Combined Ensamble\* : 97%
 Combined Ensamble(2/3 data): 84%
 
 XGBoost\* : 97%
-XGBoost\* : 98% !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+XGBoost\* : 98% 
 XGBoost : 84.36%
 # Expanded features
 GBT: 86.68%
+XGBoost: 84%
+Extra trees = 89.08%
+Ensemble: 89.21%
 
 
 \* trained on the full data set
