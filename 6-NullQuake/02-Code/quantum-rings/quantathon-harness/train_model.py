@@ -19,9 +19,6 @@ from sklearn.model_selection import GroupKFold
 # ============================================================
 
 RUNTIME_FILE = "runtime-data.csv"
-
-DEFAULT_FEATURE_FILE = "dummy_features.csv"
-
 MODEL_OUTPUT_FILE = "trained_model.joblib"
 OOF_OUTPUT_FILE = "oof_predictions.csv"
 EXPERIMENT_OUTPUT_FILE = "experiment_results.csv"

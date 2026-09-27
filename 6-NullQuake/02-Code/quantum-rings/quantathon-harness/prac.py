@@ -19,8 +19,8 @@ def main():
     )
     parser.add_argument(
         "--team",
-        default="Practice Team",
-        help="Team name written into the generated submission (default: Practice Team).",
+        default="NullQuake",
+        help="Team name written into the generated submission (default: NullQuake).",
     )
     args = parser.parse_args()
 
