@@ -22,3 +22,4 @@ Random Forests, Support Vector Machines, XG Boost, and combined ensemble methods
 See graph in the data folder.
 The combined ensemble won.
 
+Link to our repository:https://github.com/Centiganda851/Quake/tree/main/6-NullQuake
