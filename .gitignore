@@ -5,3 +5,8 @@ __pycache__/
 quantum-rings/training_circuits/
 quantum-rings/quantathon-harness/submission.csv
 quantum-rings/quantathon-harness/submission_baseline.csv
+
+__pycache__/
+*.pyc
+.DS_Store
+quantum-rings/quantathon-harness/oof_predictions_real_features.csv

@@ -1,0 +1,13 @@
+{
+  "models": [
+    "extra_trees",
+    "lightgbm",
+    "hist_gradient_boosting"
+  ],
+  "weights": [
+    0.7,
+    0.2,
+    0.1
+  ],
+  "oof_score": 0.8920759713208007
+}
