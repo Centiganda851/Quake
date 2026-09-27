@@ -18,6 +18,7 @@ These features included things like the number of each possible gate, the number
 the graph density, and many more.
 As for deciding on the model, once again we decided to throw a broad net and tested as many different types of models as possible, and compared the outputs.
 The models we tried were Linear regression, KNN, Gradient Boosted Trees, 
-Random Forests, Support Vector Machines, XG Boost, and combined ensemble methods. 
+Random Forests, Support Vector Machines, XG Boost, and combined ensemble methods.
+See graph in the data folder.
 The combined ensemble won.
 
