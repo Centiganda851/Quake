@@ -4,7 +4,7 @@ import math
 from pathlib import Path
 
 import joblib
-from sklearn.model_selection import GridSearchCV, GroupKFold
+from sklearn.model_selection import GridSearchCV, GroupKFold, cross_val_predict
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.pipeline import make_pipeline
 from sklearn.metrics import make_scorer
@@ -160,6 +160,25 @@ def main():
     )
     search.fit(samples, targets)
     model = search.best_estimator_
+    out_of_fold_predictions = cross_val_predict(
+        model,
+        samples,
+        targets,
+        cv=cv_splits,
+        n_jobs=-1,
+    )
+    thresholds = [int(sample[-1]) for sample in samples]
+    scores_by_threshold = {}
+    all_cv_scores = []
+    for actual, predicted, threshold in zip(targets, out_of_fold_predictions, thresholds):
+        score = challenge_accuracy([actual], [predicted])
+        all_cv_scores.append(score)
+        scores_by_threshold.setdefault(threshold, []).append(score)
+    cv_threshold_scores = {
+        str(threshold): sum(scores) / len(scores)
+        for threshold, scores in scores_by_threshold.items()
+    }
+    cv_overall_accuracy = sum(all_cv_scores) / len(all_cv_scores)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(
@@ -170,13 +189,19 @@ def main():
             "trained_filenames": filenames,
             "cv_folds": CV_FOLDS,
             "cv_score": float(search.best_score_),
+            "cv_overall_accuracy": cv_overall_accuracy,
+            "cv_threshold_scores": cv_threshold_scores,
             "best_params": search.best_params_,
         },
         args.out,
     )
     print(f"Trained on {len(filenames)} circuits and {len(samples)} runtime rows.")
     print(f"Used {len(feature_names) - 1} circuit features plus threshold.")
-    print(f"Best {CV_FOLDS}-fold grouped CV accuracy: {search.best_score_:.2%}")
+    print(f"Best {CV_FOLDS}-fold grouped CV accuracy: {cv_overall_accuracy:.2%}")
+    for threshold in (16, 64, 512):
+        score = cv_threshold_scores.get(str(threshold))
+        if score is not None:
+            print(f"  CV threshold {threshold}: {score:.2%}")
     print(f"Best KNN settings: {search.best_params_}")
     print(f"Saved KNN model to {args.out}")
 
