@@ -14,5 +14,7 @@ We decided we had two main tasks: design a feature space, and then choose a good
 
 We decided to go for a maximal feature space because there were so many files so we had no idea which features were most important. Also we wanted to have a very generalized model. So our original feature space had 94 features to cover as many bases as possible. These features included things like the number of each possible gate, the number of qubits, the depth of the circuit, the Paralelism, the graph density, and many more.
 As for deciding on the model, once again we decided to throw a braod net and tested as many different types of models as possible, and compared the outputs.
-The models we tried were Linear regression, KNN, Gradient Boosted Trees, Random Forests, Support Vector Machines, XG Boost, and combined ensemble methods. The combined ensemble won.
+The models we tried were Linear regression, KNN, Gradient Boosted Trees, Random Forests, Support Vector Machines, XG Boost, and combined ensemble methods. 
+
+The combined ensemble won.
 
