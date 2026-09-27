@@ -1,62 +1,149 @@
-"""
-model.py  --  THIS IS THE ONLY FILE YOUR TEAM NEEDS TO EDIT.
+import math
+from pathlib import Path
 
-Implement the two methods below. The harness (run.py) takes care of finding
-circuits, decompressing them, timing you, and writing the submission file.
+import joblib
+import numpy as np
 
-Contract
---------
-  RuntimeModel()                      load your trained model / weights
-  .featurize(qasm_text)   -> dict     parse one circuit into features  (once per circuit)
-  .predict(features, thr) -> seconds  predict runtime in seconds       (once per (circuit, threshold))
-
-Rules of the challenge (see README):
-  * featurize and predict must each run in <= 15 s per circuit.
-  * predict returns a single number: the wall-clock seconds you expect the run to take.
-  * There is no separate "timeout" flag. If you think a run will hit the 4-hour cap,
-    just predict a duration >= the cap (14400 s). Scoring caps it there for you.
-
-The version below is a trivial BASELINE so the harness runs out of the box.
-Replace its guts with your real feature parser and model.
-"""
-
-import re
-
-CAP_SECONDS = 4 * 60 * 60  # 4-hour timeout cap
+from features import (
+    CircuitFeatureParser,
+    flatten_features,
+)
+from ml_common import (
+    CAP_SECONDS,
+    feature_dict_to_row,
+)
 
 
 class RuntimeModel:
     def __init__(self, artifacts_dir="artifacts"):
-        # Load your trained model here, e.g.:
-        #   import joblib
-        #   self.model = joblib.load(f"{artifacts_dir}/model.pkl")
-        self.model = None
+        base_dir = Path(__file__).resolve().parent
 
-    # ------------------------------------------------------------------ #
-    # 1) FEATURE PARSER  --  .qasm text  ->  feature dict                 #
-    # ------------------------------------------------------------------ #
-    def featurize(self, qasm_text: str) -> dict:
-        # BASELINE: a few cheap structural features. Design your own.
-        n_qubits = 0
-        for m in re.finditer(r"q(?:u)?(?:reg|bit)\s+\w+\s*\[\s*(\d+)\s*\]", qasm_text):
-            n_qubits += int(m.group(1))
+        artifacts_path = Path(artifacts_dir)
 
-        lines = [l.strip() for l in qasm_text.splitlines()]
-        gate_lines = [l for l in lines if l and not l.startswith(("//", "OPENQASM",
-                     "include", "qreg", "creg", "qubit", "bit", "gate"))]
-        n_ops = len(gate_lines)
-        # crude two-qubit-gate count (entangling ops dominate simulator cost)
-        n_2q = len(re.findall(r"\b(cx|cz|cy|ch|swap|iswap|rzz|rxx|ryy|cp|crx|cry|crz|ecr)\b", qasm_text))
+        if not artifacts_path.is_absolute():
+            artifacts_path = (
+                base_dir / artifacts_path
+            )
 
-        return {"n_qubits": n_qubits, "n_ops": n_ops, "n_2q": n_2q}
+        artifact_path = (
+            artifacts_path
+            / "final_model.joblib"
+        )
 
-    # ------------------------------------------------------------------ #
-    # 2) MODEL  --  (features, threshold)  ->  predicted seconds          #
-    # ------------------------------------------------------------------ #
-    def predict(self, features: dict, threshold: int) -> float:
-        # BASELINE: a toy formula. Replace with your trained model.
-        n = features["n_qubits"]
-        est = 1e-4 * (2 ** min(n, 30)) * (1 + features["n_2q"] / 1000.0)
-        est *= (threshold / 16.0) ** 0.5           # crude threshold scaling
-        # predict >= cap to signal "this will time out"
-        return float(min(est, CAP_SECONDS))
+        if not artifact_path.is_file():
+            raise FileNotFoundError(
+                f"Final model artifact not found: "
+                f"{artifact_path}"
+            )
+
+        artifact = joblib.load(
+            artifact_path
+        )
+
+        self.kind = artifact["kind"]
+
+        self.feature_names = artifact[
+            "feature_names"
+        ]
+
+        if (
+            artifact.get("target_transform")
+            != "log10_seconds"
+        ):
+            raise ValueError(
+                "Unexpected target transform."
+            )
+
+        if self.kind == "single":
+            self.model = artifact["model"]
+
+        elif self.kind == "ensemble":
+            self.models = artifact["models"]
+            self.model_names = artifact[
+                "model_names"
+            ]
+            self.weights = artifact[
+                "weights"
+            ]
+
+        else:
+            raise ValueError(
+                f"Unknown artifact kind: "
+                f"{self.kind}"
+            )
+
+        self.parser = CircuitFeatureParser(
+            model_features_only=True
+        )
+
+    def featurize(
+        self,
+        qasm_text: str,
+    ) -> dict:
+        features = self.parser.featurize(
+            qasm_text
+        )
+
+        return flatten_features(
+            features
+        )
+
+    def predict(
+        self,
+        features: dict,
+        threshold: int,
+    ) -> float:
+        row = feature_dict_to_row(
+            features,
+            threshold,
+            self.feature_names,
+        )
+
+        X = np.asarray(
+            [row],
+            dtype=float,
+        )
+
+        if self.kind == "single":
+            pred_log = float(
+                self.model.predict(X)[0]
+            )
+
+        else:
+            pred_log = 0.0
+
+            for (
+                name,
+                weight,
+            ) in zip(
+                self.model_names,
+                self.weights,
+            ):
+                pred_log += (
+                    float(weight)
+                    * float(
+                        self.models[
+                            name
+                        ].predict(X)[0]
+                    )
+                )
+
+        if not math.isfinite(pred_log):
+            return CAP_SECONDS
+
+        seconds = math.pow(
+            10.0,
+            pred_log,
+        )
+
+        seconds = max(
+            1e-9,
+            seconds,
+        )
+
+        seconds = min(
+            CAP_SECONDS,
+            seconds,
+        )
+
+        return float(seconds)
