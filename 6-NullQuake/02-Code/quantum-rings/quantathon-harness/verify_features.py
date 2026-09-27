@@ -35,9 +35,7 @@ def main():
         model_features_only=True
     )
 
-    samples = df["filename"].iloc[
-        [0, 50, 100, 200, 300, 400, 531]
-    ].tolist()
+    samples = df["filename"].tolist()
 
     checked = 0
     differences = 0

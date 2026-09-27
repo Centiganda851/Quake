@@ -10,3 +10,8 @@ __pycache__/
 *.pyc
 .DS_Store
 quantum-rings/quantathon-harness/oof_predictions_real_features.csv
+
+.DS_Store
+__pycache__/
+*.pyc
+6-NullQuake/02-Code/quantum-rings/quantathon-harness/submission.csv
