@@ -8,7 +8,7 @@ HARNESS_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = HARNESS_DIR.parent
 RUN_SCRIPT = HARNESS_DIR / "run.py"
 SCORE_SCRIPT = HARNESS_DIR / "score.py"
-CIRCUITS_DIR = PROJECT_DIR / "training_circuits"
+CIRCUITS_DIR = PROJECT_DIR / "holdout-circuits"
 LABELS_FILE = PROJECT_DIR / "runtime-data.csv"
 SUBMISSION_FILE = HARNESS_DIR / "submission.csv"
 
